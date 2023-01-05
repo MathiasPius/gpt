@@ -11,7 +11,6 @@ use std::fmt;
 use std::fs::{File, OpenOptions};
 use std::io::{Cursor, Error, ErrorKind, Read, Result, Seek, SeekFrom, Write};
 use std::path::Path;
-use std::str::FromStr;
 
 use crate::header::{parse_uuid, Header};
 use crate::partition_types::Type;
@@ -64,10 +63,7 @@ impl Partition {
     fn as_bytes(&self, entry_size: u32) -> Result<Vec<u8>> {
         let mut buf: Vec<u8> = Vec::with_capacity(entry_size as usize);
 
-        // Type GUID.
-        let tyguid = uuid::Uuid::from_str(self.part_type_guid.guid)
-            .map_err(|e| Error::new(ErrorKind::Other, format!("Invalid guid: {e}")))?;
-        let tyguid = tyguid.as_fields();
+        let tyguid = self.part_type_guid.guid.as_fields();
         buf.write_all(&tyguid.0.to_le_bytes())?;
         buf.write_all(&tyguid.1.to_le_bytes())?;
         buf.write_all(&tyguid.2.to_le_bytes())?;

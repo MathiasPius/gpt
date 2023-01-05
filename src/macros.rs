@@ -24,7 +24,7 @@ pub mod pub_macros {
         $(
             $(#[$docs])*
             pub const $upcase: Type = Type {
-                guid: $guid,
+                guid: uuid::uuid!($guid),
                 os: $os,
             };
         )+

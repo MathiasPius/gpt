@@ -1,12 +1,13 @@
 //! Parition type constants
 use log::trace;
 use std::str::FromStr;
+use uuid::Uuid;
 
 /// The type
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Type {
     /// Type-GUID for a GPT partition.
-    pub guid: &'static str,
+    pub guid: Uuid,
     /// well-known OS label for this type-GUID.
     pub os: OperatingSystem,
 }
@@ -123,7 +124,7 @@ impl Type {
 impl Default for Type {
     fn default() -> Type {
         Type {
-            guid: "00000000-0000-0000-0000-000000000000",
+            guid: uuid::uuid!("00000000-0000-0000-0000-000000000000"),
             os: OperatingSystem::None,
         }
     }

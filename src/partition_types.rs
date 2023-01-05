@@ -1,5 +1,4 @@
 //! Parition type constants
-use log::trace;
 use std::str::FromStr;
 use uuid::Uuid;
 
@@ -90,8 +89,8 @@ impl FromStr for OperatingSystem {
 
 #[test]
 fn test_partition_fromstr_guid() {
-    let p = "0FC63DAF-8483-4772-8E79-3D69D8477DE4";
-    let t = Type::from_str(p).unwrap();
+    let p = uuid::uuid!("0FC63DAF-8483-4772-8E79-3D69D8477DE4");
+    let t = Type::from_uuid(&p);
     println!("result: {t:?}");
     assert_eq!(t, LINUX_FS);
 }
@@ -99,18 +98,19 @@ fn test_partition_fromstr_guid() {
 #[test]
 fn test_partition_from_name() {
     // mix case as part of the test
-    let p = "Linux_FS";
+    let p = "LINUX_FS";
     let t = Type::from_name(p).unwrap();
     println!("result: {t:?}");
     assert_eq!(t, LINUX_FS);
 }
 
+/*
 impl Type {
-    /// Lookup a partition type by uuid
-    pub fn from_uuid(u: &uuid::Uuid) -> Result<Self, String> {
+    /// Lookup a partition type by uuid to populate the operating system
+    /// field, if the type is previously known.
+    pub fn from_uuid(u: &uuid::Uuid) -> Self {
         let uuid_str = u.hyphenated().to_string().to_uppercase();
         trace!("looking up partition type guid {}", uuid_str);
-        Type::from_str(&uuid_str)
     }
 
     /// Lookup a partition type by name
@@ -120,6 +120,7 @@ impl Type {
         Type::from_str(&name_str)
     }
 }
+*/
 
 impl Default for Type {
     fn default() -> Type {
@@ -353,4 +354,15 @@ partition_types! {
     (FREEDESK_BOOT, "BC13C2FF-59E6-4262-A352-B275FD6F7172", OperatingSystem::FreeDesktop),
     /// Atari Basic Data Partition (GEM, BGM, F32)
     (ATARI_DATA, "734E5AFE-F61A-11E6-BC64-92361F002671", OperatingSystem::Atari),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Type;
+
+    #[test]
+    fn test_read_unknown_partition_type_guid() {
+        // This is just a randomly generated Uuid.
+        let _partition_type = Type::from_uuid(&uuid::uuid!("c3fca75a-eaac-447c-bd77-965f69be7b30"));
+    }
 }

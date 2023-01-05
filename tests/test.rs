@@ -70,7 +70,7 @@ fn test_write_header() {
     println!("header: {h:#?}");
 
     let p = Partition {
-        part_type_guid: Type::from_str("0FC63DAF-8483-4772-8E79-3D69D8477DE4").unwrap(),
+        part_type_guid: Type::from_uuid(&uuid::uuid!("0FC63DAF-8483-4772-8E79-3D69D8477DE4")),
         part_guid: uuid::Uuid::new_v4(),
         first_lba: 36,
         last_lba: 40,
@@ -84,15 +84,15 @@ fn test_write_header() {
 #[test]
 fn test_partition_type_fromstr() {
     assert_eq!(
-        gpt::partition_types::Type::from_str("933AC7E1-2EB4-4F13-B844-0E14E2AEF915").unwrap(),
+        gpt::partition_types::Type::from_uuid(&uuid::uuid!("933AC7E1-2EB4-4F13-B844-0E14E2AEF915")),
         gpt::partition_types::LINUX_HOME
     );
     assert_eq!(
-        gpt::partition_types::Type::from_str("114EAFFE-1552-4022-B26E-9B053604CF84").unwrap(),
+        gpt::partition_types::Type::from_uuid(&uuid::uuid!("114EAFFE-1552-4022-B26E-9B053604CF84")),
         gpt::partition_types::ANDROID_BOOTLOADER2
     );
     assert_eq!(
-        gpt::partition_types::Type::from_str("00000000-0000-0000-0000-000000000000").unwrap(),
+        gpt::partition_types::Type::from_uuid(&uuid::uuid!("00000000-0000-0000-0000-000000000000")),
         gpt::partition_types::UNUSED
     );
 }

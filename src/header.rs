@@ -1,6 +1,5 @@
 //! GPT-header object and helper functions.
 
-use crc::{crc32, Hasher32};
 use log::*;
 use std::collections::BTreeMap;
 use std::fmt;
@@ -8,8 +7,8 @@ use std::fs::{File, OpenOptions};
 use std::io::{Cursor, Error, ErrorKind, Read, Result, Seek, SeekFrom, Write};
 use std::path::Path;
 
-use crate::disk;
 use crate::partition;
+use crate::{disk, CRC32};
 
 /// Header describing a GPT disk.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -66,13 +65,11 @@ impl Header {
         // If we're creating the table from scratch, make sure the table contains enough
         // room to be UEFI compliant.
         let parts = match num_parts {
-            Some(p) => {p}
-            None => {
-                match original_header {
-                    Some(header) => header.num_parts,
-                    None => (pp.iter().filter(|p| p.1.is_used()).count() as u32).max(128),
-                }
-            }
+            Some(p) => p,
+            None => match original_header {
+                Some(header) => header.num_parts,
+                None => (pp.iter().filter(|p| p.1.is_used()).count() as u32).max(128),
+            },
         };
         //though usually 128, it might be a different number
         let part_size = match original_header {
@@ -101,9 +98,9 @@ impl Header {
             Some(_) => {
                 // last is inclusive: end of disk is (partition array) (backup header)
                 backup_offset
-                .checked_sub(part_array_num_lbs + 1)
-                .ok_or_else(|| Error::new(ErrorKind::Other, "header underflow - last usable"))?
-            },
+                    .checked_sub(part_array_num_lbs + 1)
+                    .ok_or_else(|| Error::new(ErrorKind::Other, "header underflow - last usable"))?
+            }
             None => {
                 match original_header {
                     Some(header) => header.last_usable,
@@ -111,7 +108,9 @@ impl Header {
                         // last is inclusive: end of disk is (partition array) (backup header)
                         backup_offset
                             .checked_sub(part_array_num_lbs + 1)
-                            .ok_or_else(|| Error::new(ErrorKind::Other, "header underflow - last usable"))?
+                            .ok_or_else(|| {
+                                Error::new(ErrorKind::Other, "header underflow - last usable")
+                            })?
                     }
                 }
             }
@@ -202,7 +201,7 @@ impl Header {
         trace!("bytes before checksum: {:?}", bytes);
 
         // Calculate the CRC32 from the byte array
-        let checksum = calculate_crc32(&bytes);
+        let checksum = CRC32.checksum(&bytes);
         trace!("computed header CRC32: {:#x}", checksum);
 
         // Write it to disk in 1 shot
@@ -296,10 +295,7 @@ impl fmt::Display for Header {
 ///
 /// let h = read_header(diskpath, lb_size).unwrap();
 /// ```
-pub fn read_header(
-    path: impl AsRef<Path>,
-    sector_size: disk::LogicalBlockSize
-) -> Result<Header> {
+pub fn read_header(path: impl AsRef<Path>, sector_size: disk::LogicalBlockSize) -> Result<Header> {
     let mut file = File::open(path)?;
     read_primary_header(&mut file, sector_size)
 }
@@ -377,7 +373,7 @@ pub(crate) fn file_read_header<D: Read + Seek>(file: &mut D, offset: u64) -> Res
     for crc_byte in hdr_crc.iter_mut().skip(16).take(4) {
         *crc_byte = 0;
     }
-    let c = calculate_crc32(&hdr_crc);
+    let c = CRC32.checksum(&hdr_crc);
     trace!("header CRC32: {:#x} - computed CRC32: {:#x}", h.crc32, c);
     if c == h.crc32 {
         Ok(h)
@@ -412,14 +408,6 @@ pub(crate) fn find_backup_lba<D: Read + Seek>(
     Ok(bak_lba)
 }
 
-fn calculate_crc32(b: &[u8]) -> u32 {
-    let mut digest = crc32::Digest::new(crc32::IEEE);
-    trace!("Writing buffer to digest calculator");
-    digest.write(b);
-
-    digest.sum32()
-}
-
 pub(crate) fn partentry_checksum<D: Read + Seek>(
     file: &mut D,
     hdr: &Header,
@@ -444,7 +432,7 @@ pub(crate) fn partentry_checksum<D: Read + Seek>(
 
     //trace!("Buffer before checksum: {:?}", buf);
     // Compute CRC32 over all table bits.
-    Ok(calculate_crc32(&buf))
+    Ok(CRC32.checksum(&buf))
 }
 
 /// A helper function to create a new header and write it to disk.
@@ -505,18 +493,30 @@ fn test_compute_new_fdisk_no_header() {
             tempdisk.write_all(&data).unwrap();
         }
     };
-    let new_primary =
-        Header::compute_new(true, &partitions, uuid::Uuid::new_v4(), bak, &None, lb_size, None).unwrap();
+    let new_primary = Header::compute_new(
+        true,
+        &partitions,
+        uuid::Uuid::new_v4(),
+        bak,
+        &None,
+        lb_size,
+        None,
+    )
+    .unwrap();
     println!("new primary header {:#?}", new_primary);
-    let new_backup =
-        Header::compute_new(false, &partitions, uuid::Uuid::new_v4(), bak, &None, lb_size, None).unwrap();
+    let new_backup = Header::compute_new(
+        false,
+        &partitions,
+        uuid::Uuid::new_v4(),
+        bak,
+        &None,
+        lb_size,
+        None,
+    )
+    .unwrap();
     println!("new backup header {:#?}", new_backup);
-    new_primary
-        .write_primary(&mut tempdisk, lb_size)
-        .unwrap();
-    new_backup
-        .write_backup(&mut tempdisk, lb_size)
-        .unwrap();
+    new_primary.write_primary(&mut tempdisk, lb_size).unwrap();
+    new_backup.write_backup(&mut tempdisk, lb_size).unwrap();
     let mbr = crate::mbr::ProtectiveMBR::new();
     mbr.overwrite_lba0(&mut tempdisk).unwrap();
     assert_eq!(h.signature, new_primary.signature);
@@ -652,18 +652,30 @@ fn test_compute_new_gpt_no_header() {
             tempdisk.write_all(&data).unwrap();
         }
     };
-    let new_primary =
-        Header::compute_new(true, &partitions, uuid::Uuid::new_v4(), bak, &None, lb_size, None).unwrap();
+    let new_primary = Header::compute_new(
+        true,
+        &partitions,
+        uuid::Uuid::new_v4(),
+        bak,
+        &None,
+        lb_size,
+        None,
+    )
+    .unwrap();
     println!("new primary header {:#?}", new_primary);
-    let new_backup =
-        Header::compute_new(false, &partitions, uuid::Uuid::new_v4(), bak, &None, lb_size, None).unwrap();
+    let new_backup = Header::compute_new(
+        false,
+        &partitions,
+        uuid::Uuid::new_v4(),
+        bak,
+        &None,
+        lb_size,
+        None,
+    )
+    .unwrap();
     println!("new backup header {:#?}", new_backup);
-    new_primary
-        .write_primary(&mut tempdisk, lb_size)
-        .unwrap();
-    new_backup
-        .write_backup(&mut tempdisk, lb_size)
-        .unwrap();
+    new_primary.write_primary(&mut tempdisk, lb_size).unwrap();
+    new_backup.write_backup(&mut tempdisk, lb_size).unwrap();
     let mbr = crate::mbr::ProtectiveMBR::new();
     mbr.overwrite_lba0(&mut tempdisk).unwrap();
     assert_eq!(h.signature, new_primary.signature);

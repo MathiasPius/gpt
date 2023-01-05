@@ -80,6 +80,8 @@ use std::collections::BTreeMap;
 use std::io::{Read, Seek, Write};
 use std::{fs, io, path};
 
+pub(crate) const CRC32: crc::Crc<u32> = crc::Crc::<u32>::new(&crc::CRC_32_ISO_HDLC);
+
 #[macro_use]
 mod macros;
 pub mod disk;
@@ -138,10 +140,12 @@ impl GptConfig {
     /// Open the GPT disk at the given path and inspect it according
     /// to configuration options.
     pub fn open(self, diskpath: impl AsRef<path::Path>) -> io::Result<GptDisk<'static>> {
-        let file = Box::new(fs::OpenOptions::new()
-            .write(self.writable)
-            .read(true)
-            .open(diskpath)?);
+        let file = Box::new(
+            fs::OpenOptions::new()
+                .write(self.writable)
+                .read(true)
+                .open(diskpath)?,
+        );
         self.open_from_device(file as DiskDeviceObject)
     }
 
@@ -174,14 +178,14 @@ impl GptConfig {
     pub fn create_from_device(
         self,
         device: DiskDeviceObject,
-        guid: Option<uuid::Uuid>
+        guid: Option<uuid::Uuid>,
     ) -> io::Result<GptDisk> {
         if self.initialized {
             Err(io::Error::new(
                 io::ErrorKind::Other,
                 "we were expecting to read an existing partition table, but \
                     instead we're attempting to create a new blank table",
-           ))
+            ))
         } else {
             let empty = GptDisk {
                 config: self,
@@ -249,10 +253,13 @@ impl<'a> GptDisk<'a> {
                 None => 0_u64,
             };
 
-            debug!("starting_lba {}, length {}, alignment_offset_lba {}", starting_lba, length, alignment_offset_lba);
+            debug!(
+                "starting_lba {}, length {}, alignment_offset_lba {}",
+                starting_lba, length, alignment_offset_lba
+            );
 
             if length >= (alignment_offset_lba + size_lba - 1) {
-                let starting_lba= starting_lba + alignment_offset_lba;
+                let starting_lba = starting_lba + alignment_offset_lba;
                 // Found our free slice.
                 let partition_id = self.find_next_partition_id();
                 debug!(
@@ -396,7 +403,7 @@ impl<'a> GptDisk<'a> {
     pub fn update_disk_device(
         &mut self,
         device: DiskDeviceObject<'a>,
-        writable: bool
+        writable: bool,
     ) -> DiskDeviceObject {
         self.config.writable = writable;
         std::mem::replace(&mut self.device, device)
@@ -429,9 +436,23 @@ impl<'a> GptDisk<'a> {
         // TODO(lucab): validate partitions.
         let bak = header::find_backup_lba(&mut self.device, self.config.lb_size)?;
         let h1 = header::Header::compute_new(
-            true, &pp, self.guid, bak, &self.primary_header, self.config.lb_size, None)?;
+            true,
+            &pp,
+            self.guid,
+            bak,
+            &self.primary_header,
+            self.config.lb_size,
+            None,
+        )?;
         let h2 = header::Header::compute_new(
-            false, &pp, self.guid, bak, &self.backup_header, self.config.lb_size, None)?;
+            false,
+            &pp,
+            self.guid,
+            bak,
+            &self.backup_header,
+            self.config.lb_size,
+            None,
+        )?;
         self.primary_header = Some(h1);
         self.backup_header = Some(h2);
         self.partitions = pp;
@@ -449,7 +470,14 @@ impl<'a> GptDisk<'a> {
         // TODO(lucab): validate partitions.
         let bak = header::find_backup_lba(&mut self.device, self.config.lb_size)?;
         let h1 = header::Header::compute_new(
-            true, &pp, self.guid, bak, &self.primary_header, self.config.lb_size, None)?;
+            true,
+            &pp,
+            self.guid,
+            bak,
+            &self.primary_header,
+            self.config.lb_size,
+            None,
+        )?;
         self.primary_header = Some(h1);
         self.partitions = pp;
         self.config.initialized = true;
@@ -457,7 +485,7 @@ impl<'a> GptDisk<'a> {
     }
 
     /// Update current partition table.
-    /// Allows for changing the partition count, use with caution. 
+    /// Allows for changing the partition count, use with caution.
     /// No changes are recorded to disk until `write()` is called.
     pub fn update_partitions_embedded(
         &mut self,
@@ -467,9 +495,23 @@ impl<'a> GptDisk<'a> {
         // TODO(lucab): validate partitions.
         let bak = header::find_backup_lba(&mut self.device, self.config.lb_size)?;
         let h1 = header::Header::compute_new(
-            true, &pp, self.guid, bak, &self.primary_header, self.config.lb_size, Some(num_parts))?;
+            true,
+            &pp,
+            self.guid,
+            bak,
+            &self.primary_header,
+            self.config.lb_size,
+            Some(num_parts),
+        )?;
         let h2 = header::Header::compute_new(
-            false, &pp, self.guid, bak, &self.backup_header, self.config.lb_size, Some(num_parts))?;
+            false,
+            &pp,
+            self.guid,
+            bak,
+            &self.backup_header,
+            self.config.lb_size,
+            Some(num_parts),
+        )?;
         self.primary_header = Some(h1);
         self.backup_header = Some(h2);
         self.partitions = pp;
@@ -517,8 +559,10 @@ impl<'a> GptDisk<'a> {
             if next_partition_index >= u64::from(primary_header.num_parts) {
                 return Err(io::Error::new(
                     io::ErrorKind::Other,
-                    format!("attempting to write more than max of {} partitions in primary array",
-                        primary_header.num_parts),
+                    format!(
+                        "attempting to write more than max of {} partitions in primary array",
+                        primary_header.num_parts
+                    ),
                 ));
             }
 
@@ -537,8 +581,10 @@ impl<'a> GptDisk<'a> {
                 if next_partition_index >= u64::from(backup_header.num_parts) {
                     return Err(io::Error::new(
                         io::ErrorKind::Other,
-                        format!("attempting to write more than max of {} partitions in backup array",
-                            backup_header.num_parts),
+                        format!(
+                            "attempting to write more than max of {} partitions in backup array",
+                            backup_header.num_parts
+                        ),
                     ));
                 }
                 if primary_header.part_start != backup_header.part_start {
@@ -560,7 +606,9 @@ impl<'a> GptDisk<'a> {
         partition::Partition::write_zero_entries_to_device(
             &mut self.device,
             next_partition_index,
-            u64::from(primary_header.num_parts).checked_sub(next_partition_index).unwrap(),
+            u64::from(primary_header.num_parts)
+                .checked_sub(next_partition_index)
+                .unwrap(),
             primary_header.part_start,
             self.config.lb_size,
             primary_header.part_size,
@@ -569,7 +617,9 @@ impl<'a> GptDisk<'a> {
             partition::Partition::write_zero_entries_to_device(
                 &mut self.device,
                 next_partition_index,
-                u64::from(backup_header.num_parts).checked_sub(next_partition_index).unwrap(),
+                u64::from(backup_header.num_parts)
+                    .checked_sub(next_partition_index)
+                    .unwrap(),
                 backup_header.part_start,
                 self.config.lb_size,
                 backup_header.part_size,

@@ -4,7 +4,6 @@
 //! to work with GPT partitions.
 
 use bitflags::*;
-use crc::crc32;
 use log::*;
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
@@ -14,10 +13,10 @@ use std::io::{Cursor, Error, ErrorKind, Read, Result, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::str::FromStr;
 
-use crate::disk;
 use crate::header::{parse_uuid, Header};
 use crate::partition_types::Type;
 use crate::DiskDevice;
+use crate::{disk, CRC32};
 
 bitflags! {
     /// Partition entry attributes, defined for UEFI.
@@ -147,8 +146,12 @@ impl Partition {
         lb_size: disk::LogicalBlockSize,
         bytes_per_partition: u32,
     ) -> Result<()> {
-        trace!("writing {} unused partition entries starting at index {}, start_lba={}",
-            number_entries, starting_partition_index, start_lba);
+        trace!(
+            "writing {} unused partition entries starting at index {}, start_lba={}",
+            number_entries,
+            starting_partition_index,
+            start_lba
+        );
         let pstart = start_lba
             .checked_mul(lb_size.into())
             .ok_or_else(|| Error::new(ErrorKind::Other, "partition overflow - start offset"))?;
@@ -228,7 +231,7 @@ fn read_part_name(rdr: &mut Cursor<&[u8]>) -> Result<String> {
     for _ in 0..36 {
         let b = u16::from_le_bytes(read_exact_buff!(bbuff, rdr, 2));
         if b == 0 {
-            break
+            break;
         }
         namebytes.push(b);
     }
@@ -316,7 +319,7 @@ pub fn file_read_partitions<D: Read + Seek>(
     let mut table = vec![0; pt_len as usize];
     file.read_exact(&mut table)?;
 
-    let comp_crc = crc32::checksum_ieee(&table);
+    let comp_crc = CRC32.checksum(&table);
     if comp_crc != header.crc32_parts {
         return Err(Error::new(ErrorKind::Other, "partition table CRC mismatch"));
     }

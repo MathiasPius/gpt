@@ -55,7 +55,7 @@ pub mod pub_macros {
                 /// );
                 /// ```
                 pub fn from_name(s: &str) -> Result<Self, &'static str> {
-                    match s {
+                    match s.to_uppercase().as_ref() {
                         $(
                             stringify!($upcase) => Ok($upcase),
                         )+

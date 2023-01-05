@@ -98,7 +98,7 @@ fn test_partition_fromstr_guid() {
 #[test]
 fn test_partition_from_name() {
     // mix case as part of the test
-    let p = "LINUX_FS";
+    let p = "Linux_FS";
     let t = Type::from_name(p).unwrap();
     println!("result: {t:?}");
     assert_eq!(t, LINUX_FS);

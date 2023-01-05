@@ -65,9 +65,8 @@ impl Partition {
         let mut buf: Vec<u8> = Vec::with_capacity(entry_size as usize);
 
         // Type GUID.
-        let tyguid = uuid::Uuid::from_str(self.part_type_guid.guid).map_err(|e| {
-            Error::new(ErrorKind::Other, format!("Invalid guid: {}", e.to_string()))
-        })?;
+        let tyguid = uuid::Uuid::from_str(self.part_type_guid.guid)
+            .map_err(|e| Error::new(ErrorKind::Other, format!("Invalid guid: {e}")))?;
         let tyguid = tyguid.as_fields();
         buf.write_all(&tyguid.0.to_le_bytes())?;
         buf.write_all(&tyguid.1.to_le_bytes())?;

@@ -116,9 +116,9 @@ impl ProtectiveMBR {
     ) -> io::Result<Self> {
         let totlen: u64 = sector_size.into();
         let mut buf = vec![0_u8; totlen as usize];
-        let cur = device.seek(io::SeekFrom::Current(0))?;
+        let cur = device.stream_position()?;
 
-        device.seek(io::SeekFrom::Start(0))?;
+        device.rewind()?;
         device.read_exact(&mut buf)?;
         let pmbr = Self::from_bytes(&buf, sector_size);
         device.seek(io::SeekFrom::Start(cur))?;
@@ -199,8 +199,8 @@ impl ProtectiveMBR {
 
     /// Write a protective MBR to LBA0, overwriting any existing data.
     pub fn overwrite_lba0<D: DiskDevice>(&self, device: &mut D) -> io::Result<usize> {
-        let cur = device.seek(io::SeekFrom::Current(0))?;
-        let _ = device.seek(io::SeekFrom::Start(0))?;
+        let cur = device.stream_position()?;
+        device.rewind()?;
         let data = self.as_bytes()?;
         device.write_all(&data)?;
         device.flush()?;
@@ -214,7 +214,7 @@ impl ProtectiveMBR {
     /// This overwrites the four MBR partition records and the
     /// well-known signature, leaving all other MBR bits as-is.
     pub fn update_conservative<D: DiskDevice>(&self, device: &mut D) -> io::Result<usize> {
-        let cur = device.seek(io::SeekFrom::Current(0))?;
+        let cur = device.stream_position()?;
         // Seek to first partition record.
         // (GPT spec 2.7 - sec. 5.2.3 - table 15)
         let _ = device.seek(io::SeekFrom::Start(446))?;
@@ -339,7 +339,7 @@ impl PartRecord {
 /// Return the 440 bytes of BIOS bootcode.
 pub fn read_bootcode<D: DiskDevice>(device: &mut D) -> io::Result<[u8; 440]> {
     let bootcode_offset = 0;
-    let cur = device.seek(io::SeekFrom::Current(0))?;
+    let cur = device.stream_position()?;
     let _ = device.seek(io::SeekFrom::Start(bootcode_offset))?;
     let mut bootcode = [0x00; 440];
     device.read_exact(&mut bootcode)?;
@@ -351,7 +351,7 @@ pub fn read_bootcode<D: DiskDevice>(device: &mut D) -> io::Result<[u8; 440]> {
 /// Write the 440 bytes of BIOS bootcode.
 pub fn write_bootcode<D: DiskDevice>(device: &mut D, bootcode: &[u8; 440]) -> io::Result<()> {
     let bootcode_offset = 0;
-    let cur = device.seek(io::SeekFrom::Current(0))?;
+    let cur = device.stream_position()?;
     let _ = device.seek(io::SeekFrom::Start(bootcode_offset))?;
     device.write_all(bootcode)?;
     device.flush()?;
@@ -363,7 +363,7 @@ pub fn write_bootcode<D: DiskDevice>(device: &mut D, bootcode: &[u8; 440]) -> io
 /// Read the 4 bytes of MBR disk signature.
 pub fn read_disk_signature<D: DiskDevice>(device: &mut D) -> io::Result<[u8; 4]> {
     let dsig_offset = 440;
-    let cur = device.seek(io::SeekFrom::Current(0))?;
+    let cur = device.stream_position()?;
     let _ = device.seek(io::SeekFrom::Start(dsig_offset))?;
     let mut dsig = [0x00; 4];
     device.read_exact(&mut dsig)?;
@@ -376,7 +376,7 @@ pub fn read_disk_signature<D: DiskDevice>(device: &mut D) -> io::Result<[u8; 4]>
 #[cfg_attr(feature = "cargo-clippy", allow(clippy::trivially_copy_pass_by_ref))]
 pub fn write_disk_signature<D: DiskDevice>(device: &mut D, sig: &[u8; 4]) -> io::Result<()> {
     let dsig_offset = 440;
-    let cur = device.seek(io::SeekFrom::Current(0))?;
+    let cur = device.stream_position()?;
     let _ = device.seek(io::SeekFrom::Start(dsig_offset))?;
     device.write_all(sig)?;
     device.flush()?;

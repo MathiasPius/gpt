@@ -82,7 +82,7 @@ impl FromStr for OperatingSystem {
             "Onie" => Ok(OperatingSystem::Onie),
             "PowerPc" => Ok(OperatingSystem::PowerPc),
             "Solaris Illumos" => Ok(OperatingSystem::Solaris),
-            _ => Err(format!("Unknown operating system: {}", s)),
+            _ => Err(format!("Unknown operating system: {s}")),
         }
     }
 }
@@ -91,7 +91,7 @@ impl FromStr for OperatingSystem {
 fn test_partition_fromstr_guid() {
     let p = "0FC63DAF-8483-4772-8E79-3D69D8477DE4";
     let t = Type::from_str(p).unwrap();
-    println!("result: {:?}", t);
+    println!("result: {t:?}");
     assert_eq!(t, LINUX_FS);
 }
 
@@ -100,7 +100,7 @@ fn test_partition_from_name() {
     // mix case as part of the test
     let p = "Linux_FS";
     let t = Type::from_name(p).unwrap();
-    println!("result: {:?}", t);
+    println!("result: {t:?}");
     assert_eq!(t, LINUX_FS);
 }
 

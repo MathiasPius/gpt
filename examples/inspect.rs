@@ -1,5 +1,3 @@
-use gpt;
-
 use simplelog::{Config, LevelFilter, SimpleLogger};
 use std::io;
 
@@ -9,7 +7,7 @@ fn main() {
 
     // Inspect disk image, handling errors.
     if let Err(e) = run() {
-        eprintln!("Failed to inspect image: {}", e);
+        eprintln!("Failed to inspect image: {e}");
         std::process::exit(1)
     }
 }

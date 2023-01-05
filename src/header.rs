@@ -312,7 +312,7 @@ pub(crate) fn read_primary_header<D: Read + Seek>(
     file: &mut D,
     sector_size: disk::LogicalBlockSize,
 ) -> Result<Header> {
-    let cur = file.seek(SeekFrom::Current(0)).unwrap_or(0);
+    let cur = file.stream_position().unwrap_or(0);
     let offset: u64 = sector_size.into();
     let res = file_read_header(file, offset);
     let _ = file.seek(SeekFrom::Start(cur));
@@ -323,7 +323,7 @@ pub(crate) fn read_backup_header<D: Read + Seek>(
     file: &mut D,
     sector_size: disk::LogicalBlockSize,
 ) -> Result<Header> {
-    let cur = file.seek(SeekFrom::Current(0)).unwrap_or(0);
+    let cur = file.stream_position().unwrap_or(0);
     let h2sect = find_backup_lba(file, sector_size)?;
     let offset = h2sect
         .checked_mul(sector_size.into())
@@ -388,7 +388,7 @@ pub(crate) fn find_backup_lba<D: Read + Seek>(
 ) -> Result<u64> {
     trace!("querying file size to find backup header location");
     let lb_size: u64 = sector_size.into();
-    let old_pos = f.seek(std::io::SeekFrom::Current(0))?;
+    let old_pos = f.stream_position()?;
     let len = f.seek(std::io::SeekFrom::End(0))?;
     f.seek(std::io::SeekFrom::Start(old_pos))?;
     if len <= lb_size {
@@ -473,7 +473,7 @@ fn test_compute_new_fdisk_no_header() {
     let h = read_header(diskpath, lb_size).unwrap();
     let cfg = crate::GptConfig::new().writable(false).initialized(true);
     let disk = cfg.open(diskpath).unwrap();
-    println!("original Disk {:#?}", disk);
+    println!("original Disk {disk:#?}");
     let partitions: BTreeMap<u32, partition::Partition> = BTreeMap::new();
     let mut file = std::fs::OpenOptions::new()
         .write(false)
@@ -481,7 +481,7 @@ fn test_compute_new_fdisk_no_header() {
         .open(diskpath)
         .unwrap();
     let bak = find_backup_lba(&mut file, *disk.logical_block_size()).unwrap();
-    println!("Back offset {}", bak);
+    println!("Back offset {bak}");
     let mut tempdisk = tempfile::tempfile().expect("failed to create tempfile disk");
     {
         let data: [u8; 4096] = [0; 4096];
@@ -503,7 +503,7 @@ fn test_compute_new_fdisk_no_header() {
         None,
     )
     .unwrap();
-    println!("new primary header {:#?}", new_primary);
+    println!("new primary header {new_primary:#?}");
     let new_backup = Header::compute_new(
         false,
         &partitions,
@@ -514,7 +514,7 @@ fn test_compute_new_fdisk_no_header() {
         None,
     )
     .unwrap();
-    println!("new backup header {:#?}", new_backup);
+    println!("new backup header {new_backup:#?}");
     new_primary.write_primary(&mut tempdisk, lb_size).unwrap();
     new_backup.write_backup(&mut tempdisk, lb_size).unwrap();
     let mbr = crate::mbr::ProtectiveMBR::new();
@@ -554,7 +554,7 @@ fn test_compute_new_fdisk_pass_header() {
     let h = read_header(diskpath, disk::DEFAULT_SECTOR_SIZE).unwrap();
     let cfg = crate::GptConfig::new().writable(false).initialized(true);
     let disk = cfg.open(diskpath).unwrap();
-    println!("original Disk {:#?}", disk);
+    println!("original Disk {disk:#?}");
     let partitions: BTreeMap<u32, partition::Partition> = BTreeMap::new();
     let mut file = std::fs::OpenOptions::new()
         .write(false)
@@ -562,7 +562,7 @@ fn test_compute_new_fdisk_pass_header() {
         .open(diskpath)
         .unwrap();
     let bak = find_backup_lba(&mut file, *disk.logical_block_size()).unwrap();
-    println!("Back offset {}", bak);
+    println!("Back offset {bak}");
     let mut tempdisk = tempfile::tempfile().expect("failed to create tempfile disk");
     {
         let data: [u8; 4096] = [0; 4096];
@@ -584,7 +584,7 @@ fn test_compute_new_fdisk_pass_header() {
         None,
     )
     .unwrap();
-    println!("new primary header {:#?}", new_primary);
+    println!("new primary header {new_primary:#?}");
     let new_backup = Header::compute_new(
         false,
         &partitions,
@@ -595,7 +595,7 @@ fn test_compute_new_fdisk_pass_header() {
         None,
     )
     .unwrap();
-    println!("new backup header {:#?}", new_backup);
+    println!("new backup header {new_backup:#?}");
     new_primary
         .write_primary(&mut tempdisk, disk::DEFAULT_SECTOR_SIZE)
         .unwrap();
@@ -635,7 +635,7 @@ fn test_compute_new_gpt_no_header() {
     let h = read_header(diskpath, lb_size).unwrap();
     let cfg = crate::GptConfig::new().writable(false).initialized(true);
     let disk = cfg.open(diskpath).unwrap();
-    println!("original Disk {:#?}", disk);
+    println!("original Disk {disk:#?}");
     let partitions: BTreeMap<u32, partition::Partition> = BTreeMap::new();
     let mut file = std::fs::OpenOptions::new()
         .write(false)
@@ -643,7 +643,7 @@ fn test_compute_new_gpt_no_header() {
         .open(diskpath)
         .unwrap();
     let bak = find_backup_lba(&mut file, *disk.logical_block_size()).unwrap();
-    println!("Back offset {}", bak);
+    println!("Back offset {bak}");
     let mut tempdisk = tempfile::tempfile().expect("failed to create tempfile disk");
     {
         let data: [u8; 4096] = [0; 4096];
@@ -662,7 +662,7 @@ fn test_compute_new_gpt_no_header() {
         None,
     )
     .unwrap();
-    println!("new primary header {:#?}", new_primary);
+    println!("new primary header {new_primary:#?}");
     let new_backup = Header::compute_new(
         false,
         &partitions,
@@ -673,7 +673,7 @@ fn test_compute_new_gpt_no_header() {
         None,
     )
     .unwrap();
-    println!("new backup header {:#?}", new_backup);
+    println!("new backup header {new_backup:#?}");
     new_primary.write_primary(&mut tempdisk, lb_size).unwrap();
     new_backup.write_backup(&mut tempdisk, lb_size).unwrap();
     let mbr = crate::mbr::ProtectiveMBR::new();
@@ -713,7 +713,7 @@ fn test_compute_new_fdisk_gpt_header() {
     let h = read_header(diskpath, disk::DEFAULT_SECTOR_SIZE).unwrap();
     let cfg = crate::GptConfig::new().writable(false).initialized(true);
     let disk = cfg.open(diskpath).unwrap();
-    println!("original Disk {:#?}", disk);
+    println!("original Disk {disk:#?}");
     let partitions: BTreeMap<u32, partition::Partition> = BTreeMap::new();
     let mut file = std::fs::OpenOptions::new()
         .write(false)
@@ -721,7 +721,7 @@ fn test_compute_new_fdisk_gpt_header() {
         .open(diskpath)
         .unwrap();
     let bak = find_backup_lba(&mut file, *disk.logical_block_size()).unwrap();
-    println!("Back offset {}", bak);
+    println!("Back offset {bak}");
     let mut tempdisk = tempfile::tempfile().expect("failed to create tempfile disk");
     {
         let data: [u8; 4096] = [0; 4096];
@@ -743,7 +743,7 @@ fn test_compute_new_fdisk_gpt_header() {
         None,
     )
     .unwrap();
-    println!("new primary header {:#?}", new_primary);
+    println!("new primary header {new_primary:#?}");
     let new_backup = Header::compute_new(
         false,
         &partitions,
@@ -754,7 +754,7 @@ fn test_compute_new_fdisk_gpt_header() {
         None,
     )
     .unwrap();
-    println!("new backup header {:#?}", new_backup);
+    println!("new backup header {new_backup:#?}");
     new_primary
         .write_primary(&mut tempdisk, disk::DEFAULT_SECTOR_SIZE)
         .unwrap();

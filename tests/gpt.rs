@@ -1,9 +1,7 @@
-use gpt;
-
 use gpt::disk;
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
-use std::io::{SeekFrom, Write};
+use std::io::Write;
 use std::path;
 use tempfile::NamedTempFile;
 
@@ -65,9 +63,9 @@ fn test_gptdisk_linux_01_write_fidelity_with_device() {
     let good_header1 = gdisk.primary_header().unwrap().clone();
     let good_header2 = gdisk.backup_header().unwrap().clone();
     let good_partitions = gdisk.partitions().clone();
-    println!("good header1={:?}", good_header1);
-    println!("good header2={:?}", good_header2);
-    println!("good partitions={:#?}", good_partitions);
+    println!("good header1={good_header1:?}");
+    println!("good header2={good_header2:?}");
+    println!("good partitions={good_partitions:#?}");
 
     // Test that we can write this test partition table to an in-memory buffer
     // instead, then load the results and verify they should be the same.
@@ -80,7 +78,7 @@ fn test_gptdisk_linux_01_write_fidelity_with_device() {
     // that we wrote the data to the memory buffer correctly.
     let mut tempdisk = NamedTempFile::new().expect("failed to create tempfile disk");
     let mut gpt_in_mem = vec![0_u8; image_size];
-    let _ = mem_device.seek(SeekFrom::Start(0)).unwrap();
+    mem_device.rewind().unwrap();
     mem_device.read_exact(&mut gpt_in_mem).unwrap();
     tempdisk.write_all(&gpt_in_mem).unwrap();
     tempdisk.flush().unwrap();
@@ -130,7 +128,7 @@ fn test_create_simple_on_device() {
         .add_partition("test2", 1024 * 18, gpt::partition_types::LINUX_FS, 0, None)
         .unwrap();
     let mut mem_device = gdisk.write().unwrap();
-    mem_device.seek(std::io::SeekFrom::Start(0)).unwrap();
+    mem_device.rewind().unwrap();
     let mut final_bytes = vec![0_u8; TOTAL_BYTES];
     mem_device.read_exact(&mut final_bytes).unwrap();
 }

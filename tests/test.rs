@@ -1,7 +1,3 @@
-use simplelog;
-
-use uuid;
-
 use gpt::disk;
 use gpt::header::{read_header, write_header, Header};
 use gpt::partition::{read_partitions, Partition};
@@ -43,11 +39,11 @@ fn test_read_header() {
     let diskpath = Path::new("tests/fixtures/gpt-linux-disk-01.img");
     let h = read_header(diskpath, disk::DEFAULT_SECTOR_SIZE).unwrap();
 
-    println!("header: {:?}", h);
+    println!("header: {h:?}");
     assert_eq!(h, expected_header);
 
     let p = read_partitions(diskpath, &h, disk::DEFAULT_SECTOR_SIZE).unwrap();
-    println!("Partitions: {:?}", p);
+    println!("Partitions: {p:?}");
     assert_eq!(*p.get(&1).unwrap(), expected_partition);
 }
 
@@ -68,10 +64,10 @@ fn test_write_header() {
         Some(uuid::Uuid::from_str("f400b934-48ef-4381-8f26-459f6b33c7df").unwrap()),
         disk::DEFAULT_SECTOR_SIZE,
     );
-    println!("Wrote header: {:?}", w);
+    println!("Wrote header: {w:?}");
     println!("Reading header");
     let h = read_header(tempdisk.path(), disk::DEFAULT_SECTOR_SIZE).unwrap();
-    println!("header: {:#?}", h);
+    println!("header: {h:#?}");
 
     let p = Partition {
         part_type_guid: Type::from_str("0FC63DAF-8483-4772-8E79-3D69D8477DE4").unwrap(),

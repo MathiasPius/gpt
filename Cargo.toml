@@ -1,18 +1,18 @@
 [package]
 name = "gpt"
-version = "3.0.0"
+version = "4.0.0"
 description = "A pure-Rust library to work with GPT partition tables."
 documentation = "https://docs.rs/gpt"
-authors = ["Chris Ober <obercgit@gmail.com>", "Chris Holcombe <xfactor973@gmail.com>", "Luca Bruno <lucab@debian.org>"]
+authors = ["Chris Ober <obercgit@gmail.com>", "Chris Holcombe <xfactor973@gmail.com>", "Luca Bruno <lucab@debian.org>", "Mathias Pius <contact@pius.io>"]
 license = "MIT"
-homepage = "https://github.com/Quyzi/gpt"
-edition = "2018"
+homepage = "https://github.com/MathiasPius/gpt"
+edition = "2021"
 
 [dependencies]
-bitflags = "^1.2"
+bitflags = "1"
 crc = "3"
-log = "^0.4"
-uuid = { version = "^0.8", features = ["v4"] }
+log = "0.4"
+uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 simplelog = "0.12"

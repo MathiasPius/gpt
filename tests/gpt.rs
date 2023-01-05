@@ -133,6 +133,7 @@ fn test_create_simple_on_device() {
     mem_device.read_exact(&mut final_bytes).unwrap();
 }
 
+#[test]
 fn test_create_aligned_on_device() {
     const TOTAL_BYTES: usize = 48 * 1024; // 48KiB, 96 Blocks
     const ALIGNMENT: u64 = 4096 / 512; // 8 LBA alignment
@@ -155,8 +156,8 @@ fn test_create_aligned_on_device() {
         .unwrap();
 
     // 00-33: MBR, GPT Header / Info
-    // 40-51: Part 1 - 0.75 disk pages
-    // 56-61: Part 2 - 0.75 disk pagess
+    // 40-51: Part 1 - 0.75 disk pages, 12 blocks.
+    // 56-61: Part 2 - 0.75 disk pages, 6 blocks.
     // 62-95: GPT Backup
     assert!(
         gdisk
@@ -171,14 +172,14 @@ fn test_create_aligned_on_device() {
         "unexpected error writing first aligned partition: should start at LBA 40, end at 59"
     );
 
-    assert!(gdisk.add_partition("test2", 8 * 1024, gpt::partition_types::LINUX_FS, 0, Some(ALIGNMENT)).is_err(),
+    assert!(gdisk.add_partition("test2", 4 * 1024, gpt::partition_types::LINUX_FS, 0, Some(ALIGNMENT)).is_err(),
             "expected error writing over-sized second aligned partition: impossible addressing starting at LBA 56 ending at LBA 63 shouldn't fit with GPT backup");
 
     assert!(
         gdisk
             .add_partition(
                 "test2",
-                6 * 1024,
+                3 * 1024,
                 gpt::partition_types::LINUX_FS,
                 0,
                 Some(ALIGNMENT)
@@ -188,6 +189,7 @@ fn test_create_aligned_on_device() {
     );
 
     let mut mem_device = gdisk.write().unwrap();
+    mem_device.rewind().unwrap();
     let mut final_bytes = vec![0u8; TOTAL_BYTES];
     mem_device.read_exact(&mut final_bytes).unwrap();
 }
